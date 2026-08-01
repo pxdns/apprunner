@@ -1,0 +1,49 @@
+name: Build AppRunner
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build & run tests
+        run: swift build -c release --package-path .
+
+      - name: Bundle .app
+        run: ./Scripts/bundle.sh release
+
+      - name: Zip app bundle
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent AppRunner.app AppRunner.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppRunner-macOS
+          path: dist/AppRunner.zip
+          if-no-files-found: error
+
+      - name: Zip browser extension
+        run: zip -r BrowserExtension.zip BrowserExtension
+
+      - name: Upload browser extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppRunner-BrowserExtension
+          path: BrowserExtension.zip
+          if-no-files-found: error
