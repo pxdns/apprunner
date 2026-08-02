@@ -1,19 +1,21 @@
 import AppKit
 import Foundation
 
-/// Bridges Apple's private MediaRemote.framework, loaded at runtime via
-/// dlopen/dlsym (never linked, no header available) — the same technique
-/// boring-notch-style menu-bar apps use, since there is no public API for
-/// system-wide now-playing info. Because the framework is private, symbol
-/// lookups fail gracefully (nil) rather than crashing on OS versions where
-/// the ABI shifts.
+/// Two ways of getting system-wide now-playing info, tried in order:
 ///
-/// Caveat worth knowing: starting around macOS 15.4, Apple tightened what
-/// third-party (non-Music/non-entitled) processes can get back from
-/// MRMediaRemoteGetNowPlayingInfo — real boring-notch had to add a whole
-/// separate helper-process workaround for it. This bridge will still try,
-/// and fails silently (empty state, not a crash) if your macOS version
-/// blocks it — there's no clean way to detect that in advance.
+/// 1. **mediaremote-adapter** (MediaRemoteAdapterProcess) — the real fix
+///    for macOS 15.4+/Tahoe, where Apple added entitlement verification
+///    that blocks a plain third-party dlopen of MediaRemote.framework.
+///    Works by running `/usr/bin/perl` (a system binary that does carry
+///    the entitlement) with a bundled helper framework. Used when present
+///    (staged into the app bundle by Scripts/build-mediaremote-adapter.sh).
+/// 2. **Direct dlopen/dlsym** of MediaRemote.framework — the original
+///    approach, which still works fine on older macOS versions and is
+///    used as a fallback if the adapter isn't bundled or fails to launch.
+///
+/// Playback commands (play/pause/skip) still go through the direct
+/// dlsym'd MRMediaRemoteSendCommand either way — the adapter project only
+/// covers reading now-playing info, not sending commands.
 enum MediaRemoteCommand: UInt32 {
     case play = 0
     case pause = 1
@@ -46,12 +48,16 @@ final class MediaRemoteBridge: NSObject {
     private var getNowPlayingPID: GetNowPlayingPIDFn?
     private var sendCommand: SendCommandFn?
 
+    private let adapter = MediaRemoteAdapterProcess()
+    private var usingAdapter = false
+
     // Multiple views observe now-playing at once (the notch hover bar
     // *and* the full Media tab) — fan out to all subscribers and
-    // reference-count polling instead of one view's stop() killing
+    // reference-count start/stop instead of one view's stop() killing
     // another's feed.
     private var subscribers: [UUID: (NowPlayingInfo) -> Void] = [:]
     private var pollTimer: Timer?
+    private var isRunning = false
     private var pollRefCount = 0
 
     private override init() {
@@ -59,7 +65,11 @@ final class MediaRemoteBridge: NSObject {
         guard let handle = dlopen(
             "/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote",
             RTLD_NOW
-        ) else { return }
+        ) else {
+            NSLog("AppRunner: MediaRemote dlopen failed — framework not found at expected path")
+            return
+        }
+        NSLog("AppRunner: MediaRemote dlopen succeeded, macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
 
         if let sym = dlsym(handle, "MRMediaRemoteGetNowPlayingInfo") {
             getNowPlayingInfo = unsafeBitCast(sym, to: GetNowPlayingInfoFn.self)
@@ -83,7 +93,7 @@ final class MediaRemoteBridge: NSObject {
         )
     }
 
-    var isAvailable: Bool { getNowPlayingInfo != nil }
+    var isAvailable: Bool { getNowPlayingInfo != nil || usingAdapter }
 
     @discardableResult
     func subscribe(_ handler: @escaping (NowPlayingInfo) -> Void) -> UUID {
@@ -98,8 +108,20 @@ final class MediaRemoteBridge: NSObject {
 
     func startPolling(interval: TimeInterval = 2) {
         pollRefCount += 1
+        guard !isRunning else { return }
+        isRunning = true
+
+        adapter.onUpdate = { [weak self] payload in
+            self?.handleAdapterPayload(payload)
+        }
+        if adapter.start() {
+            usingAdapter = true
+            NSLog("AppRunner: using mediaremote-adapter for Now Playing (works on macOS 15.4+/Tahoe)")
+            return
+        }
+
+        NSLog("AppRunner: mediaremote-adapter not available, falling back to direct MediaRemote calls")
         refresh()
-        guard pollTimer == nil else { return }
         pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.refresh()
         }
@@ -107,15 +129,38 @@ final class MediaRemoteBridge: NSObject {
 
     func stopPolling() {
         pollRefCount = max(0, pollRefCount - 1)
-        guard pollRefCount == 0 else { return }
+        guard pollRefCount == 0, isRunning else { return }
+        isRunning = false
+        if usingAdapter {
+            adapter.stop()
+            usingAdapter = false
+        }
         pollTimer?.invalidate()
         pollTimer = nil
     }
 
+    private func handleAdapterPayload(_ payload: [String: Any]) {
+        var result = NowPlayingInfo()
+        result.title = payload["title"] as? String ?? ""
+        result.artist = payload["artist"] as? String ?? ""
+        result.isPlaying = payload["playing"] as? Bool ?? false
+        result.elapsed = payload["elapsedTime"] as? Double ?? 0
+        result.duration = payload["duration"] as? Double ?? 0
+        result.sourceBundleID = (payload["parentApplicationBundleIdentifier"] as? String)
+            ?? (payload["bundleIdentifier"] as? String)
+        if let base64 = payload["artworkData"] as? String, let data = Data(base64Encoded: base64) {
+            result.artwork = NSImage(data: data)
+        }
+        publish(result)
+    }
+
     @objc private func handleNowPlayingChange() {
+        guard !usingAdapter else { return }
         refresh()
     }
 
+    /// Direct dlopen/dlsym fallback path — only used when mediaremote-adapter
+    /// isn't bundled or failed to launch.
     func refresh() {
         guard let getNowPlayingInfo else { return }
         getNowPlayingInfo(.main) { [weak self] info in
@@ -136,14 +181,27 @@ final class MediaRemoteBridge: NSObject {
                 result.artwork = NSImage(data: artworkData)
             }
 
+            // Publish immediately — don't let source-app resolution (a
+            // second, flakier private call) hold up showing what's
+            // actually playing. If/when it resolves, publish again with
+            // sourceBundleID filled in.
+            DispatchQueue.main.async {
+                self.publish(result)
+            }
             self.resolveSourceBundleID { bundleID in
-                result.sourceBundleID = bundleID
+                guard let bundleID else { return }
+                var withSource = result
+                withSource.sourceBundleID = bundleID
                 DispatchQueue.main.async {
-                    for handler in self.subscribers.values {
-                        handler(result)
-                    }
+                    self.publish(withSource)
                 }
             }
+        }
+    }
+
+    private func publish(_ info: NowPlayingInfo) {
+        for handler in subscribers.values {
+            handler(info)
         }
     }
 

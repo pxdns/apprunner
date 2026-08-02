@@ -15,7 +15,9 @@ struct NotchHoverBar: View {
                 Text("No now-playing source")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                Spacer()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
             } else {
                 progressTrack
             }
@@ -24,9 +26,10 @@ struct NotchHoverBar: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.white.opacity(0.9))
                 .symbolEffect(.variableColor.iterative, options: .repeating, isActive: nowPlaying.info.isPlaying)
+                .fixedSize()
         }
         .padding(.horizontal, 16)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var artwork: some View {

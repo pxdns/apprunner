@@ -14,22 +14,19 @@ enum NotchTab: String, CaseIterable {
     }
 }
 
-/// The notch's SwiftUI content, driving three sizes via `displayState`:
-/// - closed: matches the real physical notch, nearly invisible.
-/// - hover: mouse is over it but hasn't clicked — a wider bar showing
-///   now-playing artwork/progress/visualizer (boring-notch's hover preview).
-/// - open: clicked — the full Terminal/Media/Settings tabbed panel.
+/// Renders inside a fixed-size backing window (see NotchController): only
+/// the *inner* shape's width/height change between closed → hover → open,
+/// animated by SwiftUI, top-anchored so it always grows down/out from the
+/// real notch position rather than the window itself ever moving or resizing.
 struct NotchContentView: View {
     @ObservedObject var settings: NotchSettingsStore
     @StateObject private var nowPlaying: NowPlayingModel
-    @Binding var displayState: NotchDisplayState
     @State private var isHovering = false
     @State private var isOpen = false
     @State private var tab: NotchTab = .terminal
 
-    init(settings: NotchSettingsStore, displayState: Binding<NotchDisplayState>) {
+    init(settings: NotchSettingsStore) {
         self.settings = settings
-        self._displayState = displayState
         self._nowPlaying = StateObject(wrappedValue: NowPlayingModel(settings: settings))
     }
 
@@ -38,7 +35,31 @@ struct NotchContentView: View {
         return isHovering ? .hover : .closed
     }
 
+    private var screen: NSScreen { NSScreen.main ?? NSScreen.screens.first! }
+
+    private var currentSize: NSSize {
+        switch localState {
+        case .closed:
+            return NotchGeometry.closedSize(for: screen)
+        case .hover:
+            return NotchGeometry.hoverSize(for: screen, sidePadding: CGFloat(settings.hoverSidePadding))
+        case .open:
+            return NotchGeometry.openSize(width: CGFloat(settings.expandedWidth), height: CGFloat(settings.expandedHeight))
+        }
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            pill
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onAppear {
+            nowPlaying.start()
+        }
+    }
+
+    private var pill: some View {
         Group {
             switch localState {
             case .closed:
@@ -46,11 +67,10 @@ struct NotchContentView: View {
             case .hover:
                 NotchHoverBar(nowPlaying: nowPlaying)
             case .open:
-                openPanel
-                    .padding(12)
-                    .frame(width: CGFloat(settings.expandedWidth), height: CGFloat(settings.expandedHeight))
+                openPanel.padding(12)
             }
         }
+        .frame(width: currentSize.width, height: currentSize.height)
         .background(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,
@@ -70,25 +90,21 @@ struct NotchContentView: View {
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.18)) { isOpen = true }
         }
-        .onChange(of: localState) { _, newValue in
-            displayState = newValue
-        }
-        .onAppear {
-            nowPlaying.start()
-        }
     }
 
+    /// A thin accent-colored strip along the bottom edge of the closed
+    /// pill — much easier to actually spot than a tiny centered dot, since
+    /// it sits right where the physical notch's black housing ends and
+    /// normal wallpaper/menu bar begins.
     private var closedBar: some View {
-        HStack {
-            Spacer()
-            Circle()
-                .fill(settings.accentColor)
-                .frame(width: 5, height: 5)
-            Spacer()
+        VStack {
+            Spacer(minLength: 0)
+            Capsule()
+                .fill(settings.accentColor.opacity(0.85))
+                .frame(width: 56, height: 3)
+                .padding(.bottom, 3)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 4)
-        .padding(.top, 2)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var openPanel: some View {

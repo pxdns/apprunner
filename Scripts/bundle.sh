@@ -26,6 +26,9 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$BIN_PATH" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 
+echo "==> Building Now Playing helper (mediaremote-adapter)"
+"$ROOT_DIR/Scripts/build-mediaremote-adapter.sh" "$APP_BUNDLE/Contents/Resources" || true
+
 echo "==> Ad-hoc signing"
 codesign --force --deep --sign - \
     --entitlements "$ROOT_DIR/Resources/AppRunner.entitlements" \

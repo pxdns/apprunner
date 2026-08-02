@@ -72,7 +72,7 @@ final class NotchSettingsStore: ObservableObject {
         cornerRadius = d.object(forKey: Keys.corner) != nil ? d.double(forKey: Keys.corner) : 14
         expandedWidth = d.object(forKey: Keys.width) != nil ? d.double(forKey: Keys.width) : 460
         expandedHeight = d.object(forKey: Keys.height) != nil ? d.double(forKey: Keys.height) : 320
-        hoverSidePadding = d.object(forKey: Keys.hoverPadding) != nil ? d.double(forKey: Keys.hoverPadding) : 90
+        hoverSidePadding = d.object(forKey: Keys.hoverPadding) != nil ? d.double(forKey: Keys.hoverPadding) : 110
         terminalThemeID = d.string(forKey: Keys.theme) ?? TerminalTheme.ghosttyDark.id
         preferredNowPlayingSourceID = d.string(forKey: Keys.nowPlayingSource)
         customSourceBundleID = d.string(forKey: Keys.customSource) ?? ""
