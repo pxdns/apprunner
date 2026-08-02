@@ -7,15 +7,21 @@ physical notch, gets wider on hover, and opens into a full panel on click.
 
 ## What it does
 
-- **Three notch states**, matching boring-notch's interaction model:
-  - **Closed** — sized to the *real* physical notch via `NSScreen.safeAreaInsets`
-    + `auxiliaryTopLeftArea`/`auxiliaryTopRightArea` (public APIs, macOS 12+),
-    not a guessed constant. On a non-notched display it falls back to a
-    fixed pill size.
-  - **Hover** — mouse over, not clicked: a wider bar (padding on each side
-    is a setting) showing now-playing artwork, a progress track, and an
-    animated waveform icon.
-  - **Open** — click it: the full Terminal / Media / Settings tabbed panel.
+- **Four notch states**, matching boring-notch's interaction model:
+  - **Closed** — nothing playing, mouse not over it: sized to the *real*
+    physical notch via `NSScreen.safeAreaInsets` +
+    `auxiliaryTopLeftArea`/`auxiliaryTopRightArea` (public APIs, macOS
+    12+), not a guessed constant. Falls back to a fixed pill size on a
+    non-notched display.
+  - **Compact** — the *resting* state whenever something's playing, no
+    hover required: a wider bar (side padding is a setting) with artwork
+    and an animated waveform icon. Also what hovering shows when nothing's
+    playing.
+  - **Preview** — hovering while something's playing: a taller card with
+    title/artist, a progress track with elapsed/remaining time, and
+    prev/play-pause/next controls.
+  - **Open** — single-click: the full Terminal / Media / Settings tabbed
+    panel. Double-clicking is an explicit no-op.
 - **Real terminal** — SwiftTerm's `LocalProcessTerminalView`: proper
   ANSI/VT100 emulation, scrollback, mouse reporting, resizing — a real
   terminal (like Ghostty or VS Code's integrated terminal), not a raw text
@@ -44,9 +50,11 @@ Sources/AppRunner/
   AppRunnerApp.swift                   App entry point + status item + hotkey wiring
   Hotkey/HotKeyManager.swift           Carbon global hotkey (⌥ Space)
   Notch/NotchPanel.swift               Borderless floating NSPanel
-  Notch/NotchController.swift          Real notch geometry; closed/hover/open sizing
-  Notch/NotchContentView.swift         Drives the three states from hover/click
-  Notch/NotchHoverBar.swift            Hover-state now-playing bar
+  Notch/NotchGeometry.swift            Shared closed/compact/preview/open sizing
+  Notch/NotchController.swift          Fixed-size backing window (no resize-on-hover flicker)
+  Notch/NotchContentView.swift         Drives the four states from playback/hover/click
+  Notch/NotchHoverBar.swift            Compact resting-state now-playing bar
+  Notch/NotchPreviewCard.swift         Hover preview card (progress, time, transport controls)
   Notch/NotchSettingsStore.swift       Persisted customization + now-playing source
   Notch/NotchSettingsView.swift        Settings tab UI
   Terminal/TerminalHostView.swift      NSViewRepresentable wrapping SwiftTerm

@@ -14,10 +14,15 @@ enum NotchTab: String, CaseIterable {
     }
 }
 
-/// Renders inside a fixed-size backing window (see NotchController): only
-/// the *inner* shape's width/height change between closed → hover → open,
-/// animated by SwiftUI, top-anchored so it always grows down/out from the
-/// real notch position rather than the window itself ever moving or resizing.
+/// Renders inside a fixed-size backing window (see NotchController). State
+/// ladder, closed → open:
+/// - closed: nothing playing, not hovering — the tiny real-notch-sized dot.
+/// - compact: something playing and not hovering (the *resting* state,
+///   no hover needed) — or hovering while nothing's playing (placeholder).
+/// - preview: hovering while something's playing — the full card with
+///   progress/time labels/transport controls.
+/// - open: clicked — the full Terminal/Media/Settings tabbed panel.
+///   Double-clicking is explicitly a no-op.
 struct NotchContentView: View {
     @ObservedObject var settings: NotchSettingsStore
     @StateObject private var nowPlaying: NowPlayingModel
@@ -30,19 +35,25 @@ struct NotchContentView: View {
         self._nowPlaying = StateObject(wrappedValue: NowPlayingModel(settings: settings))
     }
 
+    private var hasNowPlaying: Bool { !nowPlaying.info.title.isEmpty }
+
     private var localState: NotchDisplayState {
         if isOpen { return .open }
-        return isHovering ? .hover : .closed
+        if isHovering { return hasNowPlaying ? .preview : .compact }
+        return hasNowPlaying ? .compact : .closed
     }
 
     private var screen: NSScreen { NSScreen.main ?? NSScreen.screens.first! }
 
     private var currentSize: NSSize {
+        let padding = CGFloat(settings.hoverSidePadding)
         switch localState {
         case .closed:
             return NotchGeometry.closedSize(for: screen)
-        case .hover:
-            return NotchGeometry.hoverSize(for: screen, sidePadding: CGFloat(settings.hoverSidePadding))
+        case .compact:
+            return NotchGeometry.compactSize(for: screen, sidePadding: padding)
+        case .preview:
+            return NotchGeometry.previewSize(for: screen, sidePadding: padding)
         case .open:
             return NotchGeometry.openSize(width: CGFloat(settings.expandedWidth), height: CGFloat(settings.expandedHeight))
         }
@@ -64,8 +75,11 @@ struct NotchContentView: View {
             switch localState {
             case .closed:
                 closedBar
-            case .hover:
+            case .compact:
                 NotchHoverBar(nowPlaying: nowPlaying)
+            case .preview:
+                NotchPreviewCard(nowPlaying: nowPlaying)
+                    .colorScheme(.dark)
             case .open:
                 openPanel.padding(12)
             }
@@ -87,7 +101,11 @@ struct NotchContentView: View {
                 if !hovering { isOpen = false }
             }
         }
-        .onTapGesture {
+        // Double-click is an explicit no-op — attaching it alongside the
+        // single-tap gesture makes SwiftUI resolve them exclusively (a
+        // double-click never also fires the single-click handler).
+        .onTapGesture(count: 2) {}
+        .onTapGesture(count: 1) {
             withAnimation(.easeInOut(duration: 0.18)) { isOpen = true }
         }
     }
