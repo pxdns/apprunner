@@ -2,33 +2,53 @@ import SwiftUI
 
 enum NotchTab: String, CaseIterable {
     case terminal = "Terminal"
+    case media = "Media"
     case settings = "Settings"
 
     var symbol: String {
         switch self {
         case .terminal: return "terminal"
+        case .media: return "music.note"
         case .settings: return "gearshape"
         }
     }
 }
 
-/// The notch's SwiftUI content: nearly invisible when collapsed (sized to
-/// match the real physical notch, so it just blends in), expanding
-/// downward on hover into a real terminal + a settings tab.
+/// The notch's SwiftUI content, driving three sizes via `displayState`:
+/// - closed: matches the real physical notch, nearly invisible.
+/// - hover: mouse is over it but hasn't clicked — a wider bar showing
+///   now-playing artwork/progress/visualizer (boring-notch's hover preview).
+/// - open: clicked — the full Terminal/Media/Settings tabbed panel.
 struct NotchContentView: View {
     @ObservedObject var settings: NotchSettingsStore
-    @Binding var isExpanded: Bool
+    @StateObject private var nowPlaying: NowPlayingModel
+    @Binding var displayState: NotchDisplayState
+    @State private var isHovering = false
+    @State private var isOpen = false
     @State private var tab: NotchTab = .terminal
 
-    var body: some View {
-        VStack(spacing: 0) {
-            collapsedBar
+    init(settings: NotchSettingsStore, displayState: Binding<NotchDisplayState>) {
+        self.settings = settings
+        self._displayState = displayState
+        self._nowPlaying = StateObject(wrappedValue: NowPlayingModel(settings: settings))
+    }
 
-            if isExpanded {
-                expandedContent
+    private var localState: NotchDisplayState {
+        if isOpen { return .open }
+        return isHovering ? .hover : .closed
+    }
+
+    var body: some View {
+        Group {
+            switch localState {
+            case .closed:
+                closedBar
+            case .hover:
+                NotchHoverBar(nowPlaying: nowPlaying)
+            case .open:
+                openPanel
                     .padding(12)
                     .frame(width: CGFloat(settings.expandedWidth), height: CGFloat(settings.expandedHeight))
-                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .background(
@@ -40,15 +60,25 @@ struct NotchContentView: View {
             )
             .fill(.black)
         )
+        .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.18)) {
-                isExpanded = hovering
+                isHovering = hovering
+                if !hovering { isOpen = false }
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: isExpanded)
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.18)) { isOpen = true }
+        }
+        .onChange(of: localState) { _, newValue in
+            displayState = newValue
+        }
+        .onAppear {
+            nowPlaying.start()
+        }
     }
 
-    private var collapsedBar: some View {
+    private var closedBar: some View {
         HStack {
             Spacer()
             Circle()
@@ -61,7 +91,7 @@ struct NotchContentView: View {
         .padding(.top, 2)
     }
 
-    private var expandedContent: some View {
+    private var openPanel: some View {
         VStack(spacing: 10) {
             Picker("", selection: $tab) {
                 ForEach(NotchTab.allCases, id: \.self) { t in
@@ -74,6 +104,8 @@ struct NotchContentView: View {
             switch tab {
             case .terminal:
                 TerminalPaneView(settings: settings)
+            case .media:
+                NowPlayingFullView(nowPlaying: nowPlaying)
             case .settings:
                 NotchSettingsView(settings: settings)
             }

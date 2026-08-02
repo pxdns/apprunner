@@ -87,7 +87,7 @@ extension NSColor {
 }
 
 extension SwiftTerm.Color {
-    init(hex: UInt32) {
+    convenience init(hex: UInt32) {
         func component(_ shift: UInt32) -> UInt16 {
             UInt16(((hex >> shift) & 0xFF)) * 257 // scale 0...255 to 0...65535
         }
