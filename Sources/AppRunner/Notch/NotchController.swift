@@ -7,17 +7,31 @@ import Combine
 @MainActor
 final class NotchController {
     private var panel: NotchPanel?
-    private let appLibrary: AppLibrary
-    private let menuBarStore: MenuBarCustomizationStore
+    private let settings: NotchSettingsStore
     private let isExpanded = CurrentValueSubject<Bool, Never>(false)
     private var cancellables = Set<AnyCancellable>()
 
-    private let collapsedSize = NSSize(width: 170, height: 26)
-    private let expandedSize = NSSize(width: 320, height: 340)
+    /// Sized to the *real* physical notch when one exists (via the public
+    /// safeAreaInsets/auxiliaryTopLeftArea+auxiliaryTopRightArea APIs,
+    /// available macOS 12+), so on a notched machine like an M2 MacBook
+    /// Air this exactly matches the camera housing's cutout instead of a
+    /// guessed constant. Falls back to a reasonable fixed size on displays
+    /// with no physical notch (external monitors, older Macs).
+    private func collapsedSize(for screen: NSScreen) -> NSSize {
+        let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top : 26
+        if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
+            let width = screen.frame.width - left.width - right.width
+            return NSSize(width: max(width, 120), height: height)
+        }
+        return NSSize(width: 200, height: height)
+    }
 
-    init(appLibrary: AppLibrary, menuBarStore: MenuBarCustomizationStore) {
-        self.appLibrary = appLibrary
-        self.menuBarStore = menuBarStore
+    private var expandedSize: NSSize {
+        NSSize(width: CGFloat(settings.expandedWidth), height: CGFloat(settings.expandedHeight))
+    }
+
+    init(settings: NotchSettingsStore) {
+        self.settings = settings
     }
 
     func show() {
@@ -25,13 +39,14 @@ final class NotchController {
             NSLog("AppRunner: NotchController.show() — NSScreen.main is nil, cannot place notch")
             return
         }
-        NSLog("AppRunner: placing notch on screen \(screen.localizedName), frame=\(screen.frame), safeAreaInsets.top=\(screen.safeAreaInsets.top)")
+        let size = collapsedSize(for: screen)
+        NSLog("AppRunner: placing notch on \(screen.localizedName), collapsedSize=\(size), safeAreaInsets.top=\(screen.safeAreaInsets.top)")
 
         let origin = NSPoint(
-            x: screen.frame.midX - collapsedSize.width / 2,
-            y: screen.frame.maxY - collapsedSize.height
+            x: screen.frame.midX - size.width / 2,
+            y: screen.frame.maxY - size.height
         )
-        let rect = NSRect(origin: origin, size: collapsedSize)
+        let rect = NSRect(origin: origin, size: size)
         let panel = NotchPanel(contentRect: rect)
 
         let expandedBinding = Binding<Bool>(
@@ -39,11 +54,10 @@ final class NotchController {
             set: { [weak self] newValue in self?.setExpanded(newValue) }
         )
 
-        let content = NotchContentView(appLibrary: appLibrary, menuBarStore: menuBarStore, isExpanded: expandedBinding)
+        let content = NotchContentView(settings: settings, isExpanded: expandedBinding)
         panel.contentView = NSHostingView(rootView: content)
         panel.orderFrontRegardless()
         self.panel = panel
-        NSLog("AppRunner: notch panel frame=\(panel.frame), isVisible=\(panel.isVisible), level=\(panel.level.rawValue)")
     }
 
     func toggle() {
@@ -58,7 +72,7 @@ final class NotchController {
     private func setExpanded(_ expanded: Bool) {
         isExpanded.send(expanded)
         guard let panel, let screen = NSScreen.main else { return }
-        let size = expanded ? expandedSize : collapsedSize
+        let size = expanded ? expandedSize : collapsedSize(for: screen)
         let origin = NSPoint(
             x: screen.frame.midX - size.width / 2,
             y: screen.frame.maxY - size.height

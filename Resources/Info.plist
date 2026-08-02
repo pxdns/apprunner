@@ -24,7 +24,5 @@
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>AppRunner launches and manages other applications on your behalf.</string>
 </dict>
 </plist>

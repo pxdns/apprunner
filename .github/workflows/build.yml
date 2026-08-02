@@ -37,13 +37,3 @@ jobs:
           name: AppRunner-macOS
           path: dist/AppRunner.zip
           if-no-files-found: error
-
-      - name: Zip browser extension
-        run: zip -r BrowserExtension.zip BrowserExtension
-
-      - name: Upload browser extension artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AppRunner-BrowserExtension
-          path: BrowserExtension.zip
-          if-no-files-found: error
