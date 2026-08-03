@@ -42,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Toggle Notch (⌥Space)", action: #selector(toggleNotch), keyEquivalent: "n")
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: "Open Terminal", action: #selector(openTerminal), keyEquivalent: "t")
+        menu.addItem(withTitle: "Open Media", action: #selector(openMedia), keyEquivalent: "")
+        menu.addItem(withTitle: "Open Settings", action: #selector(openSettings), keyEquivalent: ",")
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Quit AppRunner", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items {
             item.target = self
@@ -51,6 +55,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleNotch() {
         notchController?.toggle()
+    }
+
+    @objc private func openTerminal() {
+        notchController?.open(tab: .terminal)
+    }
+
+    @objc private func openMedia() {
+        notchController?.open(tab: .media)
+    }
+
+    @objc private func openSettings() {
+        notchController?.open(tab: .settings)
     }
 
     @objc private func quit() {

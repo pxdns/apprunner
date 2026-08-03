@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum NotchTab: String, CaseIterable {
+enum NotchTab: String, CaseIterable, Equatable {
     case terminal = "Terminal"
     case media = "Media"
     case settings = "Settings"
@@ -15,23 +15,27 @@ enum NotchTab: String, CaseIterable {
 }
 
 /// Renders inside a fixed-size backing window (see NotchController). State
-/// ladder, closed → open:
-/// - closed: nothing playing, not hovering — the tiny real-notch-sized dot.
-/// - compact: something playing and not hovering (the *resting* state,
-///   no hover needed) — or hovering while nothing's playing (placeholder).
+/// ladder:
+/// - resting: always shown otherwise — a small accent dot (nothing
+///   playing) or artwork thumbnail + waveform icon (something is), sized
+///   just slightly beyond the physical notch so it's actually visible
+///   (content painted at the notch's own exact size/position doesn't
+///   render at all — that strip is reserved for the camera housing).
 /// - preview: hovering while something's playing — the full card with
 ///   progress/time labels/transport controls.
-/// - open: clicked — the full Terminal/Media/Settings tabbed panel.
+/// - open: single-click — the full Terminal/Media/Settings tabbed panel.
 ///   Double-clicking is explicitly a no-op.
 struct NotchContentView: View {
     @ObservedObject var settings: NotchSettingsStore
+    @ObservedObject var navigator: NotchNavigator
     @StateObject private var nowPlaying: NowPlayingModel
     @State private var isHovering = false
     @State private var isOpen = false
     @State private var tab: NotchTab = .terminal
 
-    init(settings: NotchSettingsStore) {
+    init(settings: NotchSettingsStore, navigator: NotchNavigator) {
         self.settings = settings
+        self.navigator = navigator
         self._nowPlaying = StateObject(wrappedValue: NowPlayingModel(settings: settings))
     }
 
@@ -39,21 +43,18 @@ struct NotchContentView: View {
 
     private var localState: NotchDisplayState {
         if isOpen { return .open }
-        if isHovering { return hasNowPlaying ? .preview : .compact }
-        return hasNowPlaying ? .compact : .closed
+        if isHovering && hasNowPlaying { return .preview }
+        return .resting
     }
 
     private var screen: NSScreen { NSScreen.main ?? NSScreen.screens.first! }
 
     private var currentSize: NSSize {
-        let padding = CGFloat(settings.hoverSidePadding)
         switch localState {
-        case .closed:
-            return NotchGeometry.closedSize(for: screen)
-        case .compact:
-            return NotchGeometry.compactSize(for: screen)
+        case .resting:
+            return NotchGeometry.restingSize(for: screen)
         case .preview:
-            return NotchGeometry.previewSize(for: screen, sidePadding: padding)
+            return NotchGeometry.previewSize(for: screen, sidePadding: CGFloat(settings.hoverSidePadding))
         case .open:
             return NotchGeometry.openSize(width: CGFloat(settings.expandedWidth), height: CGFloat(settings.expandedHeight))
         }
@@ -68,15 +69,19 @@ struct NotchContentView: View {
         .onAppear {
             nowPlaying.start()
         }
+        .onChange(of: navigator.requestedTab) { _, requested in
+            guard let requested else { return }
+            tab = requested
+            withAnimation(.easeInOut(duration: 0.18)) { isOpen = true }
+            navigator.requestedTab = nil
+        }
     }
 
     private var pill: some View {
         Group {
             switch localState {
-            case .closed:
-                closedBar
-            case .compact:
-                NotchHoverBar(nowPlaying: nowPlaying)
+            case .resting:
+                hasNowPlaying ? AnyView(NotchHoverBar(nowPlaying: nowPlaying)) : AnyView(restingDot)
             case .preview:
                 NotchPreviewCard(nowPlaying: nowPlaying)
                     .colorScheme(.dark)
@@ -110,11 +115,9 @@ struct NotchContentView: View {
         }
     }
 
-    /// A thin accent-colored strip along the bottom edge of the closed
-    /// pill — much easier to actually spot than a tiny centered dot, since
-    /// it sits right where the physical notch's black housing ends and
-    /// normal wallpaper/menu bar begins.
-    private var closedBar: some View {
+    /// Resting-and-nothing-playing content: a thin accent-colored strip
+    /// along the bottom edge — easier to spot than a tiny centered dot.
+    private var restingDot: some View {
         VStack {
             Spacer(minLength: 0)
             Capsule()

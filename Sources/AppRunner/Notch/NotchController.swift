@@ -2,16 +2,15 @@ import AppKit
 import SwiftUI
 
 enum NotchDisplayState: Equatable {
-    case closed
-    case compact
+    case resting
     case preview
     case open
 }
 
 /// Owns the NotchPanel and keeps it pinned under the menu bar / display
 /// notch. The window itself is created ONCE at a fixed size big enough
-/// for the largest state and never resized again — all closed/compact/
-/// preview/open sizing happens purely inside SwiftUI (NotchContentView),
+/// for the largest state and never resized again — all resting/preview/
+/// open sizing happens purely inside SwiftUI (NotchContentView),
 /// animating the inner shape rather than the window frame. Resizing an
 /// actual NSWindow while the mouse is hovering over it causes the cursor
 /// to fall outside the frame mid-animation, which fires a spurious
@@ -22,6 +21,7 @@ final class NotchController {
     private var panel: NotchPanel?
     private let settings: NotchSettingsStore
     private let fullScreenMonitor = FullScreenMonitor()
+    private let navigator = NotchNavigator()
 
     /// Two independent reasons the panel might be off-screen: the user
     /// explicitly hid it (⌥ Space), or a fullscreen app is active (the
@@ -46,7 +46,7 @@ final class NotchController {
         let rect = NSRect(origin: origin, size: canvasSize)
         let panel = NotchPanel(contentRect: rect)
 
-        let content = NotchContentView(settings: settings)
+        let content = NotchContentView(settings: settings, navigator: navigator)
         panel.contentView = NSHostingView(rootView: content)
         panel.orderFrontRegardless()
         self.panel = panel
@@ -61,6 +61,14 @@ final class NotchController {
     func toggle() {
         userHidden.toggle()
         updateVisibility()
+    }
+
+    /// Opens the notch directly to a given tab — used by the status bar
+    /// menu's "Open Terminal"/"Open Media"/"Open Settings" items.
+    func open(tab: NotchTab) {
+        userHidden = false
+        updateVisibility()
+        navigator.open(tab)
     }
 
     private func updateVisibility() {

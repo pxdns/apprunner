@@ -7,16 +7,16 @@ physical notch, gets wider on hover, and opens into a full panel on click.
 
 ## What it does
 
-- **Four notch states**, matching boring-notch's interaction model:
-  - **Closed** — nothing playing, mouse not over it: sized to the *real*
-    physical notch via `NSScreen.safeAreaInsets` +
-    `auxiliaryTopLeftArea`/`auxiliaryTopRightArea` (public APIs, macOS
-    12+), not a guessed constant. Falls back to a fixed pill size on a
-    non-notched display.
-  - **Compact** — the *resting* state whenever something's playing, no
-    hover required: sized identically to the physical notch itself (no
-    growth) — just a small artwork thumbnail and a tiny waveform icon.
-    Also what hovering shows when nothing's playing.
+- **Three notch states**, matching boring-notch's interaction model:
+  - **Resting** — shown at all times otherwise: a small accent dot when
+    nothing's playing, or a small artwork thumbnail + tiny waveform icon
+    when something is. Sized just slightly beyond the *real* physical
+    notch footprint (via `NSScreen.safeAreaInsets` +
+    `auxiliaryTopLeftArea`/`auxiliaryTopRightArea`, public APIs, macOS
+    12+) rather than exactly matching it — content painted at the notch's
+    own exact size/position doesn't actually render (that strip is
+    reserved for the camera housing), so resting always extends a little
+    into the definitely-visible menu bar area on either side.
   - **Preview** — hovering while something's playing: a wider, taller card
     (side padding is a setting) with title/artist, a progress track with
     elapsed/remaining time, and prev/play-pause/next controls.
@@ -44,7 +44,9 @@ physical notch, gets wider on hover, and opens into a full panel on click.
 - **Global hotkey** — ⌥ Space shows/hides the whole notch panel.
 
 AppRunner runs as an accessory app (`LSUIElement`) with no Dock icon,
-reachable from its menu bar status item.
+reachable from its menu bar status item — including "Open Terminal",
+"Open Media", and "Open Settings" items that jump the notch straight to
+that tab, not just a plain toggle.
 
 ## Project layout
 
@@ -54,8 +56,9 @@ Sources/AppRunner/
   AppRunnerApp.swift                   App entry point + status item + hotkey wiring
   Hotkey/HotKeyManager.swift           Carbon global hotkey (⌥ Space)
   Notch/NotchPanel.swift               Borderless floating NSPanel
-  Notch/NotchGeometry.swift            Shared closed/compact/preview/open sizing
+  Notch/NotchGeometry.swift            Shared resting/preview/open sizing
   Notch/NotchController.swift          Fixed-size backing window; fullscreen-aware visibility
+  Notch/NotchNavigator.swift           Lets the status bar menu open a specific tab directly
   Notch/NotchContentView.swift         Drives the four states from playback/hover/click
   Notch/NotchHoverBar.swift            Compact resting-state now-playing bar
   Notch/NotchPreviewCard.swift         Hover preview card (progress, time, transport controls)
