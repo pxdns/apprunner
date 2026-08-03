@@ -23,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = NotchSettingsStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Powers hiding the notch during fullscreen apps; stays inert
+        // (notch just never auto-hides) if this is denied.
+        AccessibilityPermission.requestIfNeeded()
+
         notchController = NotchController(settings: settings)
         notchController?.show()
 

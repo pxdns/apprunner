@@ -51,7 +51,7 @@ struct NotchContentView: View {
         case .closed:
             return NotchGeometry.closedSize(for: screen)
         case .compact:
-            return NotchGeometry.compactSize(for: screen, sidePadding: padding)
+            return NotchGeometry.compactSize(for: screen)
         case .preview:
             return NotchGeometry.previewSize(for: screen, sidePadding: padding)
         case .open:

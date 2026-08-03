@@ -1,34 +1,26 @@
 import SwiftUI
 
-/// The mid-size "hovering, not yet clicked" state: artwork on the left, a
-/// playback progress track in the middle, a little audio visualizer icon
-/// on the right — matching boring-notch's hover preview. Shown only while
-/// the mouse is over the notch and it hasn't been clicked open yet.
+/// The compact *resting* state: a small artwork thumbnail and a tiny
+/// waveform icon, sized to fit entirely within the physical notch's own
+/// footprint — no progress track, no growth. This is what shows whenever
+/// something's playing, without needing to hover; the bigger card with
+/// progress/time/controls (NotchPreviewCard) only appears on actual hover.
 struct NotchHoverBar: View {
     @ObservedObject var nowPlaying: NowPlayingModel
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 6) {
             artwork
-
-            if nowPlaying.info.title.isEmpty {
-                Text("No now-playing source")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 0)
-            } else {
-                progressTrack
+            Spacer(minLength: 2)
+            if !nowPlaying.info.title.isEmpty {
+                Image(systemName: "waveform")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .symbolEffect(.variableColor.iterative, options: .repeating, isActive: nowPlaying.info.isPlaying)
+                    .fixedSize()
             }
-
-            Image(systemName: "waveform")
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.9))
-                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: nowPlaying.info.isPlaying)
-                .fixedSize()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 7)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -37,23 +29,12 @@ struct NotchHoverBar: View {
             if let art = nowPlaying.info.artwork {
                 Image(nsImage: art).resizable()
             } else {
-                RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.12))
+                RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.12))
             }
         }
-        .frame(width: 40, height: 40)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var progressTrack: some View {
-        let fraction: Double = nowPlaying.info.duration > 0 ? nowPlaying.info.elapsed / nowPlaying.info.duration : 0
-        let clamped = CGFloat(max(0, min(1, fraction)))
-        return GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.15))
-                Capsule().fill(.white.opacity(0.85))
-                    .frame(width: geo.size.width * clamped)
-            }
-        }
-        .frame(height: 4)
+        .aspectRatio(1, contentMode: .fit)
+        .frame(maxHeight: .infinity)
+        .padding(.vertical, 4)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }

@@ -14,14 +14,18 @@ physical notch, gets wider on hover, and opens into a full panel on click.
     12+), not a guessed constant. Falls back to a fixed pill size on a
     non-notched display.
   - **Compact** — the *resting* state whenever something's playing, no
-    hover required: a wider bar (side padding is a setting) with artwork
-    and an animated waveform icon. Also what hovering shows when nothing's
-    playing.
-  - **Preview** — hovering while something's playing: a taller card with
-    title/artist, a progress track with elapsed/remaining time, and
-    prev/play-pause/next controls.
+    hover required: sized identically to the physical notch itself (no
+    growth) — just a small artwork thumbnail and a tiny waveform icon.
+    Also what hovering shows when nothing's playing.
+  - **Preview** — hovering while something's playing: a wider, taller card
+    (side padding is a setting) with title/artist, a progress track with
+    elapsed/remaining time, and prev/play-pause/next controls.
   - **Open** — single-click: the full Terminal / Media / Settings tabbed
     panel. Double-clicking is an explicit no-op.
+- **Hides during fullscreen apps** — same as the real menu bar. Polls the
+  frontmost app's focused window via Accessibility's `AXFullScreen`
+  attribute; requires Accessibility permission (prompted for on launch),
+  and just never auto-hides if that's denied.
 - **Real terminal** — SwiftTerm's `LocalProcessTerminalView`: proper
   ANSI/VT100 emulation, scrollback, mouse reporting, resizing — a real
   terminal (like Ghostty or VS Code's integrated terminal), not a raw text
@@ -51,10 +55,12 @@ Sources/AppRunner/
   Hotkey/HotKeyManager.swift           Carbon global hotkey (⌥ Space)
   Notch/NotchPanel.swift               Borderless floating NSPanel
   Notch/NotchGeometry.swift            Shared closed/compact/preview/open sizing
-  Notch/NotchController.swift          Fixed-size backing window (no resize-on-hover flicker)
+  Notch/NotchController.swift          Fixed-size backing window; fullscreen-aware visibility
   Notch/NotchContentView.swift         Drives the four states from playback/hover/click
   Notch/NotchHoverBar.swift            Compact resting-state now-playing bar
   Notch/NotchPreviewCard.swift         Hover preview card (progress, time, transport controls)
+  Notch/FullScreenMonitor.swift        Polls AXFullScreen to hide the notch in fullscreen apps
+  Notch/AccessibilityPermission.swift  Accessibility permission check/prompt
   Notch/NotchSettingsStore.swift       Persisted customization + now-playing source
   Notch/NotchSettingsView.swift        Settings tab UI
   Terminal/TerminalHostView.swift      NSViewRepresentable wrapping SwiftTerm

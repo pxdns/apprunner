@@ -21,6 +21,13 @@ enum NotchDisplayState: Equatable {
 final class NotchController {
     private var panel: NotchPanel?
     private let settings: NotchSettingsStore
+    private let fullScreenMonitor = FullScreenMonitor()
+
+    /// Two independent reasons the panel might be off-screen: the user
+    /// explicitly hid it (⌥ Space), or a fullscreen app is active (the
+    /// real menu bar disappears then too, so the notch should match).
+    /// Visible only when neither is true.
+    private var userHidden = false
 
     init(settings: NotchSettingsStore) {
         self.settings = settings
@@ -43,15 +50,26 @@ final class NotchController {
         panel.contentView = NSHostingView(rootView: content)
         panel.orderFrontRegardless()
         self.panel = panel
+
+        fullScreenMonitor.onChange = { [weak self] _ in
+            self?.updateVisibility()
+        }
+        fullScreenMonitor.start()
     }
 
     /// ⌥ Space: show/hide the whole notch panel.
     func toggle() {
+        userHidden.toggle()
+        updateVisibility()
+    }
+
+    private func updateVisibility() {
         guard let panel else { return }
-        if panel.isVisible {
-            panel.orderOut(nil)
-        } else {
+        let shouldShow = !userHidden && !fullScreenMonitor.isFullScreen
+        if shouldShow && !panel.isVisible {
             panel.orderFrontRegardless()
+        } else if !shouldShow && panel.isVisible {
+            panel.orderOut(nil)
         }
     }
 }
