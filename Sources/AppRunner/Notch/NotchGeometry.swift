@@ -23,15 +23,18 @@ enum NotchGeometry {
         return NSSize(width: 200, height: height)
     }
 
-    /// The resting state — shown at all times, playing or not. Slightly
-    /// wider/taller than the physical notch so part of it always sits in
-    /// the definitely-rendered menu bar area on either side, instead of
-    /// being confined to the notch's own (not visibly paintable) strip.
-    /// Content is a small accent dot when nothing's playing, or a small
-    /// artwork thumbnail + waveform icon when something is.
+    /// The resting state — shown at all times, playing or not. Wider than
+    /// the physical notch so part of it always sits in the
+    /// definitely-rendered menu bar area on either side, instead of being
+    /// confined to the notch's own (not visibly paintable) strip — but
+    /// the *same height* as the notch/menu bar row, since that flanking
+    /// area is already the normal menu bar height and doesn't need extra
+    /// vertical room. Content is a small accent dot when nothing's
+    /// playing, or a small artwork thumbnail + waveform icon when
+    /// something is.
     static func restingSize(for screen: NSScreen) -> NSSize {
         let notch = notchFootprint(for: screen)
-        return NSSize(width: notch.width + 28, height: notch.height + 6)
+        return NSSize(width: notch.width + 76, height: notch.height)
     }
 
     /// The full preview card (title/artist/progress with time labels/

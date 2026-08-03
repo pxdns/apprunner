@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var notchController: NotchController?
     private var hotKeyManager: HotKeyManager?
+    private var terminalWindowController: TerminalWindowController?
     private let settings = NotchSettingsStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -58,7 +59,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openTerminal() {
-        notchController?.open(tab: .terminal)
+        if terminalWindowController == nil {
+            terminalWindowController = TerminalWindowController(settings: settings)
+        }
+        terminalWindowController?.show()
     }
 
     @objc private func openMedia() {

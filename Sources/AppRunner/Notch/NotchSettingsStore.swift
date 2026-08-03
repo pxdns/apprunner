@@ -39,6 +39,15 @@ final class NotchSettingsStore: ObservableObject {
     @Published var hoverSidePadding: Double {
         didSet { UserDefaults.standard.set(hoverSidePadding, forKey: Keys.hoverPadding) }
     }
+    /// Manual drag offset from the default top-center position, in points
+    /// (positive x = right, positive y = down). Lets you park the notch
+    /// wherever you actually want it instead of always dead-center.
+    @Published var offsetX: Double {
+        didSet { UserDefaults.standard.set(offsetX, forKey: Keys.offsetX) }
+    }
+    @Published var offsetY: Double {
+        didSet { UserDefaults.standard.set(offsetY, forKey: Keys.offsetY) }
+    }
     @Published var terminalThemeID: String {
         didSet { UserDefaults.standard.set(terminalThemeID, forKey: Keys.theme) }
     }
@@ -61,6 +70,8 @@ final class NotchSettingsStore: ObservableObject {
         static let width = "AppRunner.notch.expandedWidth"
         static let height = "AppRunner.notch.expandedHeight"
         static let hoverPadding = "AppRunner.notch.hoverSidePadding"
+        static let offsetX = "AppRunner.notch.offsetX"
+        static let offsetY = "AppRunner.notch.offsetY"
         static let theme = "AppRunner.notch.terminalTheme"
         static let nowPlayingSource = "AppRunner.notch.nowPlayingSource"
         static let customSource = "AppRunner.notch.customSourceBundleID"
@@ -73,6 +84,8 @@ final class NotchSettingsStore: ObservableObject {
         expandedWidth = d.object(forKey: Keys.width) != nil ? d.double(forKey: Keys.width) : 460
         expandedHeight = d.object(forKey: Keys.height) != nil ? d.double(forKey: Keys.height) : 320
         hoverSidePadding = d.object(forKey: Keys.hoverPadding) != nil ? d.double(forKey: Keys.hoverPadding) : 110
+        offsetX = d.double(forKey: Keys.offsetX)
+        offsetY = d.double(forKey: Keys.offsetY)
         terminalThemeID = d.string(forKey: Keys.theme) ?? TerminalTheme.ghosttyDark.id
         preferredNowPlayingSourceID = d.string(forKey: Keys.nowPlayingSource)
         customSourceBundleID = d.string(forKey: Keys.customSource) ?? ""

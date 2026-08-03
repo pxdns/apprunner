@@ -20,7 +20,7 @@ struct TerminalPaneView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                .frame(width: 180)
                 Spacer()
             }
         }

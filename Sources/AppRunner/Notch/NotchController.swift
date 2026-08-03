@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 enum NotchDisplayState: Equatable {
     case resting
@@ -16,12 +17,15 @@ enum NotchDisplayState: Equatable {
 /// to fall outside the frame mid-animation, which fires a spurious
 /// hover-exit, which shrinks it back, which re-triggers hover — a visible
 /// flicker loop. Keeping the window fixed-size sidesteps that entirely.
+/// Repositioning (drag-to-move) is a different, safe operation — see
+/// repositionPanel() — since it's user-initiated and doesn't touch size.
 @MainActor
 final class NotchController {
     private var panel: NotchPanel?
     private let settings: NotchSettingsStore
     private let fullScreenMonitor = FullScreenMonitor()
     private let navigator = NotchNavigator()
+    private var cancellables = Set<AnyCancellable>()
 
     /// Two independent reasons the panel might be off-screen: the user
     /// explicitly hid it (⌥ Space), or a fullscreen app is active (the
@@ -39,22 +43,24 @@ final class NotchController {
             return
         }
         let canvasSize = NotchGeometry.maxCanvasSize(for: screen, settings: settings)
-        let origin = NSPoint(
-            x: screen.frame.midX - canvasSize.width / 2,
-            y: screen.frame.maxY - canvasSize.height
-        )
-        let rect = NSRect(origin: origin, size: canvasSize)
+        let rect = NSRect(origin: .zero, size: canvasSize)
         let panel = NotchPanel(contentRect: rect)
 
         let content = NotchContentView(settings: settings, navigator: navigator)
         panel.contentView = NSHostingView(rootView: content)
-        panel.orderFrontRegardless()
         self.panel = panel
+        repositionPanel()
+        panel.orderFrontRegardless()
 
         fullScreenMonitor.onChange = { [weak self] _ in
             self?.updateVisibility()
         }
         fullScreenMonitor.start()
+
+        Publishers.CombineLatest(settings.$offsetX, settings.$offsetY)
+            .dropFirst() // initial values already applied by the first repositionPanel() above
+            .sink { [weak self] _, _ in self?.repositionPanel() }
+            .store(in: &cancellables)
     }
 
     /// ⌥ Space: show/hide the whole notch panel.
@@ -64,11 +70,21 @@ final class NotchController {
     }
 
     /// Opens the notch directly to a given tab — used by the status bar
-    /// menu's "Open Terminal"/"Open Media"/"Open Settings" items.
+    /// menu's "Open Media"/"Open Settings" items.
     func open(tab: NotchTab) {
         userHidden = false
         updateVisibility()
         navigator.open(tab)
+    }
+
+    private func repositionPanel() {
+        guard let panel, let screen = NSScreen.main else { return }
+        let size = panel.frame.size
+        let origin = NSPoint(
+            x: screen.frame.midX - size.width / 2 + CGFloat(settings.offsetX),
+            y: screen.frame.maxY - size.height - CGFloat(settings.offsetY)
+        )
+        panel.setFrameOrigin(origin)
     }
 
     private func updateVisibility() {

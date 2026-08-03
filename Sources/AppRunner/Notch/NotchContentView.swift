@@ -1,13 +1,11 @@
 import SwiftUI
 
 enum NotchTab: String, CaseIterable, Equatable {
-    case terminal = "Terminal"
     case media = "Media"
     case settings = "Settings"
 
     var symbol: String {
         switch self {
-        case .terminal: return "terminal"
         case .media: return "music.note"
         case .settings: return "gearshape"
         }
@@ -21,9 +19,12 @@ enum NotchTab: String, CaseIterable, Equatable {
 ///   just slightly beyond the physical notch so it's actually visible
 ///   (content painted at the notch's own exact size/position doesn't
 ///   render at all — that strip is reserved for the camera housing).
+///   Drag it (past a small threshold, so clicks still register as clicks)
+///   to reposition the whole notch anywhere on screen.
 /// - preview: hovering while something's playing — the full card with
 ///   progress/time labels/transport controls.
-/// - open: single-click — the full Terminal/Media/Settings tabbed panel.
+/// - open: single-click — the Media/Settings tabbed panel. (Terminal is
+///   its own separate window now — see TerminalWindowController.)
 ///   Double-clicking is explicitly a no-op.
 struct NotchContentView: View {
     @ObservedObject var settings: NotchSettingsStore
@@ -31,7 +32,8 @@ struct NotchContentView: View {
     @StateObject private var nowPlaying: NowPlayingModel
     @State private var isHovering = false
     @State private var isOpen = false
-    @State private var tab: NotchTab = .terminal
+    @State private var tab: NotchTab = .media
+    @State private var dragStartOffset: (x: Double, y: Double)?
 
     init(settings: NotchSettingsStore, navigator: NotchNavigator) {
         self.settings = settings
@@ -113,6 +115,21 @@ struct NotchContentView: View {
         .onTapGesture(count: 1) {
             withAnimation(.easeInOut(duration: 0.18)) { isOpen = true }
         }
+        // Drag to reposition. minimumDistance keeps small clicks from
+        // being swallowed as drags — only movement past that threshold
+        // starts actually moving the notch.
+        .gesture(
+            DragGesture(minimumDistance: 4)
+                .onChanged { value in
+                    if dragStartOffset == nil {
+                        dragStartOffset = (settings.offsetX, settings.offsetY)
+                    }
+                    guard let start = dragStartOffset else { return }
+                    settings.offsetX = start.x + value.translation.width
+                    settings.offsetY = start.y + value.translation.height
+                }
+                .onEnded { _ in dragStartOffset = nil }
+        )
     }
 
     /// Resting-and-nothing-playing content: a thin accent-colored strip
@@ -139,8 +156,6 @@ struct NotchContentView: View {
             .labelsHidden()
 
             switch tab {
-            case .terminal:
-                TerminalPaneView(settings: settings)
             case .media:
                 NowPlayingFullView(nowPlaying: nowPlaying)
             case .settings:

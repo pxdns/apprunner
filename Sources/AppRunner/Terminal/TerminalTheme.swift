@@ -68,7 +68,88 @@ struct TerminalTheme: Identifiable, Hashable {
         ]
     )
 
-    static let all: [TerminalTheme] = [.ghosttyDark, .dracula, .solarizedDark, .nord]
+    static let solarizedLight = TerminalTheme(
+        id: "solarized-light",
+        name: "Solarized Light",
+        backgroundHex: 0xFDF6E3,
+        foregroundHex: 0x657B83,
+        ansiHex: [
+            0x073642, 0xDC322F, 0x859900, 0xB58900,
+            0x268BD2, 0xD33682, 0x2AA198, 0xEEE8D5,
+            0x002B36, 0xCB4B16, 0x586E75, 0x657B83,
+            0x839496, 0x6C71C4, 0x93A1A1, 0xFDF6E3
+        ]
+    )
+
+    static let oneDark = TerminalTheme(
+        id: "one-dark",
+        name: "One Dark",
+        backgroundHex: 0x282C34,
+        foregroundHex: 0xABB2BF,
+        ansiHex: [
+            0x282C34, 0xE06C75, 0x98C379, 0xE5C07B,
+            0x61AFEF, 0xC678DD, 0x56B6C2, 0xABB2BF,
+            0x5C6370, 0xE06C75, 0x98C379, 0xE5C07B,
+            0x61AFEF, 0xC678DD, 0x56B6C2, 0xFFFFFF
+        ]
+    )
+
+    static let monokai = TerminalTheme(
+        id: "monokai",
+        name: "Monokai",
+        backgroundHex: 0x272822,
+        foregroundHex: 0xF8F8F2,
+        ansiHex: [
+            0x272822, 0xF92672, 0xA6E22E, 0xF4BF75,
+            0x66D9EF, 0xAE81FF, 0xA1EFE4, 0xF8F8F2,
+            0x75715E, 0xF92672, 0xA6E22E, 0xF4BF75,
+            0x66D9EF, 0xAE81FF, 0xA1EFE4, 0xF9F8F5
+        ]
+    )
+
+    static let gruvboxDark = TerminalTheme(
+        id: "gruvbox-dark",
+        name: "Gruvbox Dark",
+        backgroundHex: 0x282828,
+        foregroundHex: 0xEBDBB2,
+        ansiHex: [
+            0x282828, 0xCC241D, 0x98971A, 0xD79921,
+            0x458588, 0xB16286, 0x689D6A, 0xA89984,
+            0x928374, 0xFB4934, 0xB8BB26, 0xFABD2F,
+            0x83A598, 0xD3869B, 0x8EC07C, 0xEBDBB2
+        ]
+    )
+
+    static let tokyoNight = TerminalTheme(
+        id: "tokyo-night",
+        name: "Tokyo Night",
+        backgroundHex: 0x1A1B26,
+        foregroundHex: 0xC0CAF5,
+        ansiHex: [
+            0x15161E, 0xF7768E, 0x9ECE6A, 0xE0AF68,
+            0x7AA2F7, 0xBB9AF7, 0x7DCFFF, 0xA9B1D6,
+            0x414868, 0xF7768E, 0x9ECE6A, 0xE0AF68,
+            0x7AA2F7, 0xBB9AF7, 0x7DCFFF, 0xC0CAF5
+        ]
+    )
+
+    static let catppuccinMocha = TerminalTheme(
+        id: "catppuccin-mocha",
+        name: "Catppuccin Mocha",
+        backgroundHex: 0x1E1E2E,
+        foregroundHex: 0xCDD6F4,
+        ansiHex: [
+            0x45475A, 0xF38BA8, 0xA6E3A1, 0xF9E2AF,
+            0x89B4FA, 0xF5C2E7, 0x94E2D5, 0xBAC2DE,
+            0x585B70, 0xF38BA8, 0xA6E3A1, 0xF9E2AF,
+            0x89B4FA, 0xF5C2E7, 0x94E2D5, 0xA6ADC8
+        ]
+    )
+
+    static let all: [TerminalTheme] = [
+        .ghosttyDark, .dracula, .solarizedDark, .solarizedLight, .nord,
+        .oneDark, .monokai, .gruvboxDark, .tokyoNight, .catppuccinMocha
+    ]
 
     static func theme(id: String) -> TerminalTheme {
         all.first { $0.id == id } ?? .ghosttyDark

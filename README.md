@@ -1,36 +1,45 @@
 # AppRunner
 
-A macOS notch utility, boring-notch-style: a real, VT100/xterm-compatible
-terminal (via [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)) and
-a Now Playing widget, in a panel that starts sized to your Mac's actual
-physical notch, gets wider on hover, and opens into a full panel on click.
+A macOS notch utility, boring-notch-style: a Now Playing widget in a panel
+sized to your Mac's actual physical notch, plus a real, standalone
+terminal window (VT100/xterm-compatible, via
+[SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)) reachable from
+the menu bar.
 
 ## What it does
 
 - **Three notch states**, matching boring-notch's interaction model:
   - **Resting** — shown at all times otherwise: a small accent dot when
     nothing's playing, or a small artwork thumbnail + tiny waveform icon
-    when something is. Sized just slightly beyond the *real* physical
-    notch footprint (via `NSScreen.safeAreaInsets` +
-    `auxiliaryTopLeftArea`/`auxiliaryTopRightArea`, public APIs, macOS
-    12+) rather than exactly matching it — content painted at the notch's
-    own exact size/position doesn't actually render (that strip is
-    reserved for the camera housing), so resting always extends a little
-    into the definitely-visible menu bar area on either side.
+    when something is. Wider than the *real* physical notch footprint
+    (via `NSScreen.safeAreaInsets` + `auxiliaryTopLeftArea`/
+    `auxiliaryTopRightArea`, public APIs, macOS 12+) rather than exactly
+    matching it — content painted at the notch's own exact bounds doesn't
+    actually render (that strip is reserved for the camera housing), so
+    resting always extends into the definitely-visible menu bar area on
+    either side. Same height as the notch/menu bar row, no extra padding
+    there. **Drag it** (past a small threshold, so ordinary clicks still
+    register) to park it anywhere on screen — position is persisted.
   - **Preview** — hovering while something's playing: a wider, taller card
     (side padding is a setting) with title/artist, a progress track with
     elapsed/remaining time, and prev/play-pause/next controls.
-  - **Open** — single-click: the full Terminal / Media / Settings tabbed
-    panel. Double-clicking is an explicit no-op.
-- **Hides during fullscreen apps** — same as the real menu bar. Polls the
-  frontmost app's focused window via Accessibility's `AXFullScreen`
-  attribute; requires Accessibility permission (prompted for on launch),
-  and just never auto-hides if that's denied.
-- **Real terminal** — SwiftTerm's `LocalProcessTerminalView`: proper
-  ANSI/VT100 emulation, scrollback, mouse reporting, resizing — a real
-  terminal (like Ghostty or VS Code's integrated terminal), not a raw text
-  log. Runs your login shell (`$SHELL -il`). Four built-in themes (Ghostty
-  Dark, Dracula, Solarized Dark, Nord).
+  - **Open** — single-click: the Media / Settings tabbed panel.
+    Double-clicking is an explicit no-op.
+- **Hides during fullscreen apps** — same as the real menu bar. Two
+  independent checks, either triggers it: Accessibility's `AXFullScreen`
+  attribute on the frontmost window (needs Accessibility permission,
+  prompted for on launch), and a permission-free fallback via
+  `CGWindowListCopyWindowInfo` that flags any normal-layer window whose
+  bounds cover the entire screen. Works even if Accessibility access was
+  never granted.
+- **Real terminal, in its own window** — SwiftTerm's `LocalProcessTerminalView`:
+  proper ANSI/VT100 emulation, scrollback, mouse reporting, resizing — a
+  real terminal (like Ghostty or VS Code's integrated terminal), not a raw
+  text log. Runs your login shell (`$SHELL -il`). Opens as a normal,
+  resizable window (menu bar → "Open Terminal"), not tucked into the small
+  notch panel. Ten built-in themes: Ghostty Dark, Dracula, Solarized Dark,
+  Solarized Light, Nord, One Dark, Monokai, Gruvbox Dark, Tokyo Night,
+  Catppuccin Mocha.
 - **Now Playing** — system-wide now-playing info (title/artist/artwork/
   progress) with play/pause/skip, plus a **preferred source** setting:
   pick Music/Spotify/Chrome/Safari/Podcasts/TV/a custom bundle ID, and the
@@ -40,13 +49,14 @@ physical notch, gets wider on hover, and opens into a full panel on click.
   Apple added around macOS 15.4/Tahoe (see below) — with the older direct
   approach as a fallback.
 - **Notch customization** — accent color, corner radius, hover-bar side
-  padding, and open-panel width/height, all persisted.
+  padding, open-panel width/height, and position (drag or reset), all
+  persisted.
 - **Global hotkey** — ⌥ Space shows/hides the whole notch panel.
 
 AppRunner runs as an accessory app (`LSUIElement`) with no Dock icon,
-reachable from its menu bar status item — including "Open Terminal",
-"Open Media", and "Open Settings" items that jump the notch straight to
-that tab, not just a plain toggle.
+reachable from its menu bar status item — "Open Terminal" opens the
+standalone terminal window, "Open Media"/"Open Settings" jump the notch
+panel straight to that tab.
 
 ## Project layout
 
@@ -59,7 +69,7 @@ Sources/AppRunner/
   Notch/NotchGeometry.swift            Shared resting/preview/open sizing
   Notch/NotchController.swift          Fixed-size backing window; fullscreen-aware visibility
   Notch/NotchNavigator.swift           Lets the status bar menu open a specific tab directly
-  Notch/NotchContentView.swift         Drives the four states from playback/hover/click
+  Notch/NotchContentView.swift         Drives the three states from playback/hover/click/drag
   Notch/NotchHoverBar.swift            Compact resting-state now-playing bar
   Notch/NotchPreviewCard.swift         Hover preview card (progress, time, transport controls)
   Notch/FullScreenMonitor.swift        Polls AXFullScreen to hide the notch in fullscreen apps
@@ -67,7 +77,8 @@ Sources/AppRunner/
   Notch/NotchSettingsStore.swift       Persisted customization + now-playing source
   Notch/NotchSettingsView.swift        Settings tab UI
   Terminal/TerminalHostView.swift      NSViewRepresentable wrapping SwiftTerm
-  Terminal/TerminalPaneView.swift      Terminal tab UI (terminal + theme picker)
+  Terminal/TerminalPaneView.swift      Terminal + theme picker content
+  Terminal/TerminalWindowController.swift  Standalone resizable terminal window
   Terminal/TerminalTheme.swift         Built-in color schemes
   MediaRemote/MediaRemoteBridge.swift  Now-playing source: adapter first, direct dlopen fallback
   MediaRemote/MediaRemoteAdapterProcess.swift  Spawns + streams the bundled mediaremote-adapter helper
